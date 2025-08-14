@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ATM Booth – Cash Withdraw (BN)</title>
+  <style>
+    :root{
+      --bg:#0b1020;--panel:#121a2e;--card:#0f172a;--ink:#e5e7eb;--muted:#94a3b8;--pri:#22c55e;--accent:#38bdf8;--danger:#ef4444;--warn:#f59e0b
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:radial-gradient(1000px 600px at 10% 0%,#0e1b30,#070b16);color:var(--ink);font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial}
+    .wrap{max-width:1100px;margin:24px auto;padding:16px}
+    h1{margin:0 0 12px;font-size:clamp(22px,3.2vw,36px)}
+    .atm{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
+    .card{background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.06);border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.35)}
+    .card .hd{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;justify-content:space-between}
+    .card .bd{padding:16px}
+    .col-7{grid-column:span 12}
+    .col-5{grid-column:span 12}
+    @media(min-width:960px){.col-7{grid-column:span 7}.col-5{grid-column:span 5}}
+
+    .display{min-height:240px;background:#0b1325;border:1px solid rgba(255,255,255,.05);border-radius:12px;padding:16px}
+    .line{font-size:15px;color:var(--muted)}
+    .big{font-size:20px;font-weight:800}
+    .ok{color:#86efac}
+    .err{color:#fecaca}
+    .warn{color:#fde68a}
+
+    .row{display:grid;grid-template-columns:repeat(12,1fr);gap:12px}
+    .row > div{grid-column:span 12}
+    @media(min-width:720px){.row>.sm-6{grid-column:span 6}.row>.sm-4{grid-column:span 4}.row>.sm-8{grid-column:span 8}}
+
+    input{width:100%;padding:10px 12px;border-radius:10px;background:#0b1220;border:1px solid rgba(148,163,184,.25);color:var(--ink);outline:none}
+    input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(56,189,248,.2)}
+
+    .btn{cursor:pointer;border:none;padding:10px 14px;border-radius:10px;font-weight:700;color:#001018;background:linear-gradient(90deg,var(--accent),var(--pri))}
+    .btn.ghost{background:transparent;color:var(--ink);border:1px solid rgba(148,163,184,.35)}
+    .btn.danger{background:var(--danger);color:#fff}
+    .btn.warn{background:var(--warn);color:#111}
+    .actions{display:flex;gap:10px;flex-wrap:wrap}
+
+    .pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+    .pad button{padding:16px 0;border-radius:12px;border:1px solid rgba(255,255,255,.1);background:#0e172a;color:var(--ink);font-size:18px;cursor:pointer}
+    .pad button:active{transform:translateY(1px)}
+
+    table{width:100%;border-collapse:collapse;background:#0b1220;border-radius:12px;overflow:hidden}
+    thead th{font-weight:700;text-align:left;padding:10px;border-bottom:1px solid rgba(148,163,184,.25)}
+    tbody td{padding:10px;border-bottom:1px dashed rgba(148,163,184,.18)}
+    tbody tr:last-child td{border-bottom:none}
+
+    .receipt{background:#000814;border:1px dashed rgba(255,255,255,.2);padding:12px;border-radius:10px}
+    .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
+    .note{color:var(--muted);font-size:12px;margin-top:8px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>ATM Booth – Cash Withdraw <span style="font-size:.6em;color:#7dd3fc">(Demo)</span></h1>
+    <div class="atm">
+      <section class="card col-7">
+        <div class="hd"><strong>স্ক্রিন</strong><div class="actions"><button id="btnPrint" class="btn ghost" type="button">রসিদ প্রিন্ট</button><button id="btnReset" class="btn danger" type="button">রিসেট</button></div></div>
+        <div class="bd">
+          <div class="display" id="screen"></div>
+          <div class="note">ডেমো PIN: <b>1234</b> • একবারে উত্তোলনের সীমা: <b>৳20,000</b> • দৈনিক সীমা: <b>৳20,000</b> • ব্যালেন্স ডেমো: <b>৳50,000</b></div>
+        </div>
+      </section>
+
+      <section class="card col-5">
+        <div class="hd"><strong>ইনপুট</strong></div>
+        <div class="bd">
+          <div id="panel-auth">
+            <div class="row">
+              <div class="sm-8">
+                <label for="pin">PIN দিন</label>
+                <input id="pin" type="password" maxlength="4" placeholder="****" />
+              </div>
+              <div class="sm-4" style="display:flex;align-items:flex-end">
+                <button id="btnLogin" class="btn" type="button">এন্টার</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="panel-actions" style="display:none">
+            <div class="row">
+              <div class="sm-6">
+                <button id="actWithdraw" class="btn" type="button">💸 ক্যাশ উত্তোলন</button>
+              </div>
+              <div class="sm-6">
+                <button id="actBalance" class="btn ghost" type="button">💼 ব্যালেন্স দেখুন</button>
+              </div>
+              <div class="sm-6">
+                <button id="actMini" class="btn ghost" type="button">📄 মিনি স্টেটমেন্ট</button>
+              </div>
+              <div class="sm-6">
+                <button id="actExit" class="btn danger" type="button">🚪 এক্সিট</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="panel-withdraw" style="display:none">
+            <div class="row">
+              <div class="sm-8">
+                <label for="amount">টাকার পরিমাণ (৳)</label>
+                <input id="amount" inputmode="numeric" placeholder="যেমন: 500, 1000, 1500" />
+              </div>
+              <div class="sm-4" style="display:flex;align-items:flex-end">
+                <button id="btnWithdraw" class="btn" type="button">উত্তোলন</button>
+              </div>
+            </div>
+            <div class="row" style="margin-top:10px">
+              <div class="sm-6">
+                <div class="actions">
+                  <button class="btn ghost quick" data-v="500" type="button">৳500</button>
+                  <button class="btn ghost quick" data-v="1000" type="button">৳1,000</button>
+                  <button class="btn ghost quick" data-v="2000" type="button">৳2,000</button>
+                  <button class="btn ghost quick" data-v="5000" type="button">৳5,000</button>
+                </div>
+              </div>
+            </div>
+            <div style="margin-top:12px"></div>
+            <div class="pad" aria-label="keypad">
+              <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+              <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+              <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+              <button data-k="clr">CLR</button><button data-k="0">0</button><button data-k="bk">⌫</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card col-12">
+        <div class="hd"><strong>মিনি স্টেটমেন্ট</strong></div>
+        <div class="bd">
+          <table>
+            <thead>
+              <tr><th>সময়</th><th>টাইপ</th><th>পরিমাণ (৳)</th><th>ব্যালেন্স (৳)</th></tr>
+            </thead>
+            <tbody id="txBody">
+              <tr><td colspan="4" style="color:var(--muted)">এখনও কোনো লেনদেন নেই।</td></tr>
+            </tbody>
+          </table>
+          <div class="note">ডেমো সিস্টেমে ডেটা ব্রাউজারে অস্থায়ীভাবে রাখা হয় (localStorage)।</div>
+          <div id="receipt" class="receipt mono" style="margin-top:12px;display:none"></div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    
+    const DEMO_PIN = '1234';
+    const DAILY_LIMIT = 20000;       
+    const PER_TX_LIMIT = 20000;      
+    const MIN_UNIT = 100;            
+    const START_BAL = 50000;         
+
+    // ---------- State ----------
+    const state = {
+      authed: false,
+      balance: Number(localStorage.getItem('atm_balance') ?? START_BAL),
+      tx: JSON.parse(localStorage.getItem('atm_tx') ?? '[]'), // {t, type, amt, bal}
+      todaySum: 0,
+      today: new Date().toISOString().slice(0,10)
+    };
+	
+    // Recompute today's sum from tx
+    state.todaySum = state.tx.filter(x=>x.t.startsWith(state.today) && x.type==='WITHDRAW').reduce((a,b)=>a+b.amt,0);
+
+    // ---------- Elements ----------
+    const screen = document.getElementById('screen');
+    const panelAuth = document.getElementById('panel-auth');
+    const panelActions = document.getElementById('panel-actions');
+    const panelWithdraw = document.getElementById('panel-withdraw');
+    const txBody = document.getElementById('txBody');
+    const receipt = document.getElementById('receipt');
+
+    function fmt(n){return '৳'+Number(n).toLocaleString('bn-BD')}
+    function now(){
+      const d = new Date();
+      const pad = s=>String(s).padStart(2,'0');
+      const date = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+      const time = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+      return `${date} ${time}`;
+    }
+
+    function save(){
+      localStorage.setItem('atm_balance', String(state.balance));
+      localStorage.setItem('atm_tx', JSON.stringify(state.tx));
+    }
+
+    function renderTx(){
+      if(!state.tx.length){
+        txBody.innerHTML = '<tr><td colspan="4" style="color:var(--muted)">এখনও কোনো লেনদেন নেই।</td></tr>';
+        return;
+      }
+      txBody.innerHTML = state.tx.slice(-10).reverse().map(x=>`<tr>
+        <td>${x.t}</td>
+        <td>${x.type==='WITHDRAW'?'উত্তোলন':'ব্যালেন্স'}</td>
+        <td>${fmt(x.amt)}</td>
+        <td>${fmt(x.bal)}</td>
+      </tr>`).join('');
+    }
+
+    function setScreen(lines){
+      screen.innerHTML = lines.map(l=>{
+        if(typeof l==='string') return `<div class="line">${l}</div>`;
+        return `<div class="line ${l.cls||''}">${l.text}</div>`;
+      }).join('');
+    }
+
+    function welcome(){
+      setScreen([
+        {text:'কার্ড সনাক্ত হয়েছে।', cls:'ok big'},
+        'দয়া করে আপনার ৪-সংখ্যার PIN দিন।',
+        {text:`উপলভ্য ব্যালেন্স (ডেমো): ${fmt(state.balance)}`, cls:'warn'}
+      ]);
+      panelAuth.style.display='block';
+      panelActions.style.display='none';
+      panelWithdraw.style.display='none';
+    }
+
+    function showMenu(msg){
+      const lines = [];
+      if(msg) lines.push({text:msg, cls:'ok'});
+      lines.push({text:'মূল মেনু', cls:'big'});
+      lines.push('1) ক্যাশ উত্তোলন  •  2) ব্যালেন্স  •  3) মিনি স্টেটমেন্ট  •  4) এক্সিট');
+      setScreen(lines);
+      panelAuth.style.display='none';
+      panelActions.style.display='block';
+      panelWithdraw.style.display='none';
+    }
+
+    function showWithdraw(){
+      setScreen([
+        {text:'ক্যাশ উত্তোলন', cls:'big'},
+        `সর্বনিম্ন ইউনিট: ৳${MIN_UNIT}, একবারে সর্বোচ্চ: ${fmt(PER_TX_LIMIT)}, দৈনিক বাকি সীমা: ${fmt(Math.max(0, DAILY_LIMIT - state.todaySum))}`
+      ]);
+      panelWithdraw.style.display='block';
+      panelActions.style.display='none';
+    }
+
+    function showBalance(){
+      setScreen([
+        {text:'ব্যালেন্স', cls:'big'},
+        {text:`বর্তমান ব্যালেন্স: ${fmt(state.balance)}`, cls:'ok'}
+      ]);
+    }
+
+    function showMini(){
+      setScreen([
+        {text:'মিনি স্টেটমেন্ট (সর্বশেষ 10)', cls:'big'},
+        {text:`বর্তমান ব্যালেন্স: ${fmt(state.balance)}`, cls:'ok'}
+      ]);
+    }
+
+    function printReceipt(tx){
+      receipt.style.display='block';
+      receipt.innerHTML = [
+        '===== ATM RECEIPT =====',
+        `Time : ${tx.t}`,
+        `Type : ${tx.type}`,
+        `Amount: ${tx.amt} BDT`,
+        `Balance: ${tx.bal} BDT`,
+        '=======================\n'
+      ].join('\n');
+      window.print();
+    }
+
+    // ---------- Event Wiring ----------
+    document.getElementById('btnLogin').addEventListener('click', ()=>{
+      const pin = String(document.getElementById('pin').value || '').trim();
+      if(pin===DEMO_PIN){
+        state.authed = true;
+        document.getElementById('pin').value='';
+        showMenu('প্রবেশ সফল হয়েছে');
+      } else {
+        setScreen([{text:'PIN সঠিক নয়, আবার চেষ্টা করুন।', cls:'err'}]);
+      }
+    });
+
+    document.getElementById('actWithdraw').addEventListener('click', showWithdraw);
+    document.getElementById('actBalance').addEventListener('click', showBalance);
+    document.getElementById('actMini').addEventListener('click', ()=>{ renderTx(); showMini(); });
+    document.getElementById('actExit').addEventListener('click', ()=>{ state.authed=false; welcome(); });
+
+    document.querySelectorAll('.quick').forEach(b=>{
+      b.addEventListener('click',()=>{
+        document.getElementById('amount').value = b.dataset.v;
+      });
+    });
+
+    document.querySelectorAll('.pad button').forEach(b=>{
+      b.addEventListener('click',()=>{
+        const k = b.dataset.k; const inp = document.getElementById('amount');
+        if(k==='clr'){ inp.value=''; return; }
+        if(k==='bk'){ inp.value = inp.value.slice(0,-1); return; }
+        inp.value += k;
+      });
+    });
+
+    document.getElementById('btnWithdraw').addEventListener('click', ()=>{
+      const raw = document.getElementById('amount').value.replace(/,/g,'').trim();
+      const amt = Number(raw);
+      if(!Number.isFinite(amt) || amt<=0){ setScreen([{text:'সঠিক পরিমাণ লিখুন।', cls:'err'}]); return; }
+      if(amt % MIN_UNIT !== 0){ setScreen([{text:`পরিমাণ ${MIN_UNIT} এর গুণিতক হতে হবে।`, cls:'err'}]); return; }
+      if(amt > PER_TX_LIMIT){ setScreen([{text:`একবারে সর্বোচ্চ ${fmt(PER_TX_LIMIT)} উত্তোলন করা যাবে।`, cls:'err'}]); return; }
+      const remainDaily = DAILY_LIMIT - state.todaySum;
+      if(amt > remainDaily){ setScreen([{text:`দৈনিক সীমা অতিক্রম করছে। বাকি: ${fmt(Math.max(0,remainDaily))}`, cls:'err'}]); return; }
+      if(amt > state.balance){ setScreen([{text:'ব্যালেন্স অপর্যাপ্ত।', cls:'err'}]); return; }
+
+      // Process
+      state.balance -= amt;
+      state.todaySum += amt;
+      const tx = {t: now(), type:'WITHDRAW', amt, bal: state.balance};
+      state.tx.push(tx);
+      save();
+      renderTx();
+      setScreen([
+        {text:'লেনদেন সফল হয়েছে ✅', cls:'ok big'},
+        {text:`উত্তোলন: ${fmt(amt)}`},
+        {text:`নতুন ব্যালেন্স: ${fmt(state.balance)}`, cls:'ok'},
+        {text:`আজকে বাকি সীমা: ${fmt(Math.max(0, DAILY_LIMIT - state.todaySum))}`, cls:'warn'}
+      ]);
+      document.getElementById('amount').value='';
+    });
+
+    document.getElementById('btnReset').addEventListener('click', ()=>{
+      localStorage.removeItem('atm_balance');
+      localStorage.removeItem('atm_tx');
+      state.balance = START_BAL; state.tx=[]; state.todaySum=0; save(); renderTx();
+      welcome();
+    });
+
+    document.getElementById('btnPrint').addEventListener('click', ()=>{
+      const last = state.tx[state.tx.length-1];
+      if(!last){ setScreen([{text:'কোনো লেনদেন নেই প্রিন্ট করার জন্য।', cls:'warn'}]); return; }
+      printReceipt(last);
+    });
+
+    // ---------- Init ----------
+    renderTx();
+    welcome();
+  </script>
+</body>
+</html>
